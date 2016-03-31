@@ -1,0 +1,622 @@
+---
+title: "Iowa 2016 Presidential Primary Contributions Analysis, by Moiz Kapadia"
+output: html_document
+---
+
+
+```{r global_options, include=FALSE} 
+knitr::opts_chunk$set(fig.width=12, 
+  fig.height=8, fig.path='Figs/', echo=FALSE, warning=FALSE, message=FALSE)
+```
+
+
+```{r, echo=FALSE}
+## 2016 Campaign Contributions in Iowa
+## Univariate Plots Section
+
+library(ggplot2)
+library(knitr)
+library(gridExtra)
+library(plyr)
+library(dplyr)
+library(scales)
+```
+
+```{r, echo=FALSE}
+ia <- read.csv("IA_2016.csv")
+ia_orig <- read.csv("IA_2016.csv")
+```
+
+#Univariate Plots Section
+
+```{r, echo=FALSE}
+names(ia)
+```
+
+```{r, echo=FALSE}
+str(ia)
+```
+
+```{r, echo=FALSE}
+summary(ia$cand_nm)
+```
+
+#####I added the political party of each candidate as a variable so that I can make an analysis based on Republicans and Democrats. These tables show me how many people contributed to the campaigns of each candidate. In addition to how many people contributed, how much did each candidate raise? I'll explore this later on.
+
+```{r, echo = FALSE}
+
+make_rep <- ia$cand_nm == "Bush, Jeb" | ia$cand_nm == "Carson, Benjamin S." | 
+  ia$cand_nm == "Christie, Christopher J." | 
+  ia$cand_nm == "Cruz, Rafael Edward 'Ted'" | ia$cand_nm == "Fiorina, Carly" | 
+  ia$cand_nm == "Graham, Lindsey O." | ia$cand_nm == "Huckabee, Mike" | 
+  ia$cand_nm == "Jindal, Bobby" | ia$cand_nm == "Kasich, John R." | 
+  ia$cand_nm == "Pataki, George E." | ia$cand_nm == "Paul, Rand" | 
+  ia$cand_nm == "Perry, James R. (Rick)" | ia$cand_nm == "Rubio, Marco" | 
+  ia$cand_nm == "Santorum, Richard J." | ia$cand_nm == "Trump, Donald J." | 
+  ia$cand_nm == "Walker, Scott"  
+
+ia[make_rep, "party"] <- "Republican"
+
+make_dem <- ia$cand_nm == "Clinton, Hillary Rodham" | 
+  ia$cand_nm == "O'Malley, Martin Joseph" | ia$cand_nm == "Sanders, Bernard" | 
+  ia$cand_nm == "Lessig, Lawrence" | ia$cand_nm == "Webb, James Henry Jr."
+
+ia[make_dem, "party"] <- "Democrat"
+
+```
+
+
+```{r, echo=FALSE}
+table(ia$cand_nm[which(ia$party == "Democrat")])
+table(ia$cand_nm[which(ia$party == "Republican")])
+```
+
+
+#####I added the gender of each candidate as a variable. These tables show me how many people contributed to each candidate based on their gender. Again, I'm wondering how much did each candidate raise? Also, how do Hillary Clinton and Carly Fiorina compare as the the only women in the race?
+
+```{r, echo=FALSE}
+
+male <- ia$cand_nm == "Bush, Jeb" | ia$cand_nm == "Carson, Benjamin S." | 
+  ia$cand_nm == "Christie, Christopher J." | 
+  ia$cand_nm == "Cruz, Rafael Edward 'Ted'" | ia$cand_nm == "Graham, Lindsey O." | 
+  ia$cand_nm == "Huckabee, Mike" | ia$cand_nm == "Jindal, Bobby" | 
+  ia$cand_nm == "Kasich, John R." | ia$cand_nm == "Pataki, George E." | 
+  ia$cand_nm == "Paul, Rand" | ia$cand_nm == "Perry, James R. (Rick)" | 
+  ia$cand_nm == "Rubio, Marco" | ia$cand_nm == "Santorum, Richard J." | 
+  ia$cand_nm == "Trump, Donald J." | ia$cand_nm == "Walker, Scott" | 
+  ia$cand_nm == "O'Malley, Martin Joseph" | ia$cand_nm == "Sanders, Bernard" | 
+  ia$cand_nm == "Lessig, Lawrence" | ia$cand_nm == "Webb, James Henry Jr."
+
+ia[male, "gender"] <- "Male"
+
+female <- ia$cand_nm == "Fiorina, Carly" | 
+  ia$cand_nm == "Clinton, Hillary Rodham"
+
+ia[female, "gender"] <- "Female"
+
+```
+
+```{r, echo=FALSE}
+table(ia$cand_nm[which(ia$gender == "Male")])
+table(ia$cand_nm[which(ia$gender == "Female")])
+```
+
+```{r, echo=FALSE}
+summary(ia$contb_receipt_amt)
+```
+
+#####These are summary statistics on contribution amounts. Interesting that someone requested a refund of $7,300. The median is a good statistic to look at here, because the mean is thrown off by the width of range.
+
+```{r, echo=FALSE}
+qplot(x = contb_receipt_amt, data = subset(ia, ia$contb_receipt_amt > 0 & 
+  ia$contb_receipt_amt < 800), binwidth = 10, 
+  xlab = "Contribution Amount ($)") + 
+  scale_x_continuous(lim = c(0, 800), breaks = seq(0, 800, 50)) 
+```
+
+#####The graph above shows the contributions across both parties. Looks like the majority of the contributions were below $100, and $50 is the most frequent contribution. I wonder what this looks like between parties? 
+
+```{r, echo=FALSE}
+
+qplot(x = contb_receipt_amt, data = subset(ia, ia$contb_receipt_amt > 0 & 
+  ia$contb_receipt_amt < 800), 
+  binwidth = 10, xlab = "Contribution Amount ($)") + 
+  scale_x_continuous(lim = c(0, 800), breaks = seq(0, 800, 50)) + 
+  facet_wrap(~party)
+
+```
+
+#####Frequency poly graph to view the data in a different way.
+
+```{r, echo=FALSE}
+
+qplot(x = contb_receipt_amt, data = subset(ia, ia$contb_receipt_amt > 0 & 
+    ia$contb_receipt_amt < 1000), xlab = "Contribution Amount ($)", 
+    geom = "freqpoly") + 
+  facet_wrap(~party) 
+
+```
+
+#####The histogram hints that Republicans had more people contributing to them than the Democrats. Let me confirm this by finding the total sum donated to each party.
+
+```{r, echo=FALSE}
+total_contrb_rep <- sum(ia$contb_receipt_amt[which(ia$party == "Republican")])
+total_contrb_dem <- sum(ia$contb_receipt_amt[which(ia$party == "Democrat")])
+```
+
+
+```{r, echo=FALSE}
+"Total Republican Contributions:" 
+total_contrb_rep 
+"Total Democratic Contributions:" 
+total_contrb_dem
+```
+
+#####It's true. Republican Iowans donated almost twice as much money than Democrat Iowans. However the contributions are most likely higher because there are more Republican candidates in the race.
+
+#####I can see that both data sets have a long tails, so I'd like to transform them to see how the data looks.
+
+```{r, echo=FALSE}
+
+p1 <- qplot(x = contb_receipt_amt, data = ia) + facet_wrap(~party)
+p2 <- qplot(x = log10(contb_receipt_amt + 1), data = ia) + facet_wrap(~party)
+p3 <- qplot(x = sqrt(contb_receipt_amt), data = ia) + facet_wrap(~party)
+grid.arrange(p1, p2, p3)
+
+```
+
+#####It looks like the log based plot shows a normal distribution of contributions. I'll finish exploring by seeing what a log based frequency plot looks like. 
+
+```{r, echo=FALSE}
+qplot(x = contb_receipt_amt, data = ia, xlab = "Contribution Amount ($)", 
+      geom = "freqpoly") + 
+  facet_wrap(~party) + scale_x_log10() + 
+  facet_wrap(~party)
+```
+
+#####Next, I wanted to see how contributions varied across the cities.
+
+```{r, echo=FALSE}
+## Explore contributions from each city
+
+summary(ia$contbr_city)
+qplot(contbr_city, data = ia)
+
+```
+
+#####I see there are ~15 that cities that had the highest number of contributions. Which cities made those contributions, how much, and who did they donate to?  These are questions I'll save for bivariate or multivariate analysis. I created a dataset which counts the frequency of each city's contribution, to view the data in a different way.
+
+```{r, echo=FALSE}
+cities <- ia %>%
+  group_by(contbr_city) %>%
+  summarise(n = n()) %>%
+  arrange(-n)
+```
+
+
+```{r, echo=FALSE}
+qplot(x = n, data = subset(cities, cities$n > 100), binwidth = 10, 
+        xlab = "Number of Contributions")
+
+```
+
+#####This chart clearly shows that most of the cities had less than 100 contributors.
+
+
+#####Next, I looked at how contributions varied across occupations.
+
+```{r, echo=FALSE}
+
+summary(ia$contbr_occupation)
+qplot(contbr_occupation, data = ia)
+
+```
+
+
+```{r, echo = FALSE}
+
+occ <- ia %>%
+  group_by(contbr_occupation) %>%
+  summarise(n = n()) %>%
+  arrange(-n)
+
+```
+
+
+```{r, echo = FALSE}
+occ
+```
+
+#####Similar to cities, I see there are ~5 occupations that make the most contributions. Which occupations made these contributions, how much, and who did they donate to? These are questions I'll answer in bivariate analysis.
+
+#Univariate Analysis
+###What is the structure of your dataset?
+#####This dataset contains 10,098 observations of 18 variables, which includes information about the candidate information about the contributor, and seemingly administrative information related to processing the contribution. The contributor information includes name, city, contribution amount, etc. This dataset has 15 Factor variables and 3 numeric variables. 
+#####The contributions ranged from $10,0000 to a refund of $7300, with a mean of $155.9 and median of $50. Most of the contributions were made by Retirees and most of the contributions came from Des Moines.
+
+###What are the main features of your dataset?
+#####The main features are the candidate, contribution amount, the occupation of the contributor, and the city that the contributor resides in.
+
+###What other features in the dataset do you think will help support your investigation into your feature(s) of interest?
+#####None
+
+###Did you create any new variables from existing variables in the dataset?
+#####I added political party and gender of each candidate. I searched for the 2016 Iowa Caucus results to make sure that I assigned each candidate to the correct party.
+
+###Of the features you investigated, were there any unusual distributions? Did you perform any operations on the data to tidy, adjust, or change the form of the data? If so, why did you do this?
+#####I log-transformed the left skewed contribution amounts, which looked unusual. The transformed distribution looks more normal. The contributions had a wide range from -$7,300 to $10,000, so I had to limit my charts to greater than 0 and less than 800 to see the majority of the data.
+
+#Bivariate Plots
+
+```{r, echo=FALSE}
+
+ia["cand_lnm"] <- NA
+
+ia[ia$cand_nm == "Bush, Jeb", "cand_lnm"] <- "Bush"
+ia[ia$cand_nm == "Carson, Benjamin S.", "cand_lnm"] <- "Carson"
+ia[ia$cand_nm == "Christie, Christopher J.", "cand_lnm"] <- "Christie"
+ia[ia$cand_nm == "Cruz, Rafael Edward 'Ted'", "cand_lnm"] <- "Cruz"
+ia[ia$cand_nm == "Fiorina, Carly", "cand_lnm"] <- "Fiorina"
+ia[ia$cand_nm == "Graham, Lindsey O.", "cand_lnm"] <- "Graham"
+ia[ia$cand_nm == "Huckabee, Mike", "cand_lnm"] <- "Huckabee"
+ia[ia$cand_nm == "Jindal, Bobby", "cand_lnm"] <- "Jindal"
+ia[ia$cand_nm == "Kasich, John R.", "cand_lnm"] <- "Kasich"
+ia[ia$cand_nm == "Rubio, Marco", "cand_lnm"] <- "Rubio"
+ia[ia$cand_nm == "Santorum, Richard J.", "cand_lnm"] <- "Santorum"
+ia[ia$cand_nm == "Trump, Donald J.", "cand_lnm"] <- "Trump"
+ia[ia$cand_nm == "Walker, Scott" , "cand_lnm"] <- "Walker"
+ia[ia$cand_nm == "Clinton, Hillary Rodham", "cand_lnm"] <- "Clinton"
+ia[ia$cand_nm == "O'Malley, Martin Joseph", "cand_lnm"] <- "O'Malley"
+ia[ia$cand_nm == "Sanders, Bernard", "cand_lnm"] <- "Sanders"
+ia[ia$cand_nm == "Lessig, Lawrence", "cand_lnm"] <- "Lessig"
+ia[ia$cand_nm == "Webb, James Henry Jr.", "cand_lnm"] <- "Webb"
+
+dem <- subset(ia, ia$party == "Democrat")
+rep <- subset(ia, ia$party == "Republican")
+female <- subset(ia, ia$gender == "Female")
+male <- subset(ia, ia$gender == "Male")
+
+```
+
+```{r, echo=FALSE}
+qplot(x = cand_lnm, y = contb_receipt_amt, data = dem, geom = "boxplot") 
+```
+
+```{r, echo=FALSE}
+qplot(x = cand_lnm, y = contb_receipt_amt, data = dem, geom = "boxplot") + 
+  coord_cartesian(ylim = c(0, 500))
+```
+
+#####The two plots above are boxplots of contributions made to Democrats. It's clear that Jim Webb's contributions were well outside the range of the other candidiates. I zoomed in on the other 4 candidates to find that the median for Clinton and Sanders was around $50. O'Malley came in at $100, and Lessig at $250. 
+
+```{r, echo=FALSE}
+qplot(x = cand_lnm, y = contb_receipt_amt, data = rep, geom = "boxplot") 
+```
+
+```{r, echo=FALSE}
+qplot(x = cand_lnm, y = contb_receipt_amt, data = rep, geom = "boxplot") + 
+  coord_cartesian(ylim = c(0, 1000))
+```
+
+#####The two plots above are boxplots of contributions made to Republicans. I zoomed into the data to get a clearer picture. The chart shows that median is around ~$100 for 7 of the candidates, with 4 candidates having a median at ~$250. 
+
+```{r, echo=FALSE}
+qplot(x = cand_lnm, y = contb_receipt_amt, data = female, geom = "boxplot") + 
+  coord_cartesian(ylim = c(0, 500))
+```
+
+```{r, echo=FALSE}
+qplot(x = cand_lnm, y = contb_receipt_amt, data = male, geom = "boxplot") + 
+  coord_cartesian(ylim = c(0, 1000))
+```
+
+#####The two boxplots show the comparisos by male and female candidates.
+
+
+#####While these charts give a quick visual of how the candidates performed, its best to create a table that summarizes the statistics for each candidate.
+
+```{r, echo=FALSE}
+
+contb_by_cand <- ia %>%
+  group_by((cand_lnm)) %>%
+  summarise(total_contb = sum(contb_receipt_amt),
+            mean_contb = mean(contb_receipt_amt),
+            median_contb = median(contb_receipt_amt),
+            n = n()) %>%
+  arrange(-total_contb)
+
+```
+
+
+```{r, echo=FALSE}
+summary(contb_by_cand)
+contb_by_cand
+```
+
+#####Hillary Clinton had the most contributions with Ben Carson following in second place. Another interesting feature is the number of contributions each candidate received. Bernie Sanders had the most number of contributors with 2506, Cruz and Carson had similar numbers around 2200, and Clinton had 1463 contributors. The rest of the candidates didn't get more than 400 contributors. Finally, the mean of the means is $400, and the median of the medians is a $100. Since there is such a large range in the values, the median is a representative number.
+
+
+#####Now I'd like to visualze the total contributions for each person in bar charts separated by party.
+
+```{r, echo=FALSE}
+
+ggplot(aes(x = cand_lnm, y = contb_receipt_amt), 
+       data = subset(ia, ia$party == 'Democrat')) + 
+  geom_bar(stat="identity", fill = "blue") 
+
+ggplot(aes(x = cand_lnm, y = contb_receipt_amt), 
+       data = subset(ia, ia$party == 'Republican')) + 
+  geom_bar(stat="identity", fill = "red") 
+```
+
+#####These bar plots show which candidate received the most contributions. For the Democrats it was Clinton and Sanders. Clinton raised over $300k while Sanders raised just under $200k. For the Repbulicans it Carson and Cruz raised over $200k and Rubio raised over 100k. The rest of the Republicans raised less than $100k from individual contributors.
+
+```{r, echo=FALSE}
+
+contb_by_party <- ia %>%
+  group_by((party)) %>%
+  summarise(total_contb = sum(contb_receipt_amt),
+            mean_contb = mean(contb_receipt_amt),
+            median_contb = median(contb_receipt_amt),
+            n = n()) %>%
+  arrange(-total_contb)
+
+```
+
+
+```{r, echo=FALSE}
+summary(contb_by_party)
+contb_by_party
+```
+
+#####This table makes it easy to see that the Republicans raised more money and had more contributors than the Democrats.
+
+
+#####I'd like to find out how much the Top 10 Cities of Iowa contributers gave.
+
+```{r, echo=FALSE}
+
+contb_by_city <- ia %>%
+  group_by(contbr_city) %>%
+  summarise(total_contb = sum(contb_receipt_amt),
+            n = n()) %>%
+  arrange(-total_contb)
+
+top_cities <- contb_by_city[1:10,]
+
+```
+
+```{r, echo=FALSE}
+ggplot(aes(x = contbr_city, y = total_contb), data = top_cities) + 
+  geom_bar(stat="identity")
+
+```
+
+
+#####Clearly Des Moines, the capital of Iowa, contributed the most dollars to the campaign with over $200k. West Des Moines was a far second place with around $125k. The rest of the cities all contributed less than $75k. This graph leads me to ask to which party do these downs typically give? In the multi-variate plots section, I'll add differentiate between Republican and Democrat.
+
+#####I'd like to find out how much the Top 10 Occupations of Iowa contributers gave.
+
+```{r, echo=FALSE}
+
+contb_by_occ <- ia %>%
+  group_by(contbr_occupation) %>%
+  summarise(total_contb = sum(contb_receipt_amt),
+            n = n()) %>%
+  arrange(-total_contb)
+
+contb_by_occ$contbr_occupation <- as.character(contb_by_occ$contbr_occupation)
+contb_by_occ$contbr_occupation[2] <- "INFO REQ.1"
+contb_by_occ$contbr_occupation[10] <- "INFO REQ.2"
+top_contrb_occ <- contb_by_occ[1:10, ]
+
+```
+
+
+```{r, echo=FALSE}
+ggplot(aes(x = contbr_occupation, y = total_contb), data = top_contrb_occ) + geom_bar(stat="identity")
+
+```
+
+#####The chart clearly shows that Retirees contributed by far the most amounts. It would be great to have more information about the "INFORMATION REQUESTED" groups. This graph leads me to ask to which party do these occupations typically give? In the multi-variate plots section, I'll add differentiate between Republican and Democrat.
+
+###Talk about some of the relationships you observed in this part of the investigation. How did the feature(s) of interest vary with other features in the dataset?
+
+#####I found that the Republicans raised ~$1M compared to ~$550k raised by Democrats. Hillary Clinton raised the most amount of money as a female Democrat with ~$342k, with Bernie Sanders behind her as a male Democrat with ~$170k. Ben Carson raised the most amount of money as a Republican with ~$275k. 
+
+#####I found that the capital city of Des Moines raised over $200k for all the candidates, which is the highest amount of money raised by any city. West Des Moines came in at a far second place by raising $125k. The rest of the top 10 cities raised around $50k.
+
+#####It was clear that the Retired population of Iowa contributes the most amount of money. 
+
+###Did you observe any interesting relationships between the other features (not the main feature(s) of interest)?
+
+#####No, I explored all the variables that describe this dataset.
+
+###What was the strongest relationship you found?
+
+#####The strongest relationship was between how much the Retired population contributed. Candidates running in Iowa should target the retired population since they are very active in the political process. 
+
+#Multi-variate plots
+
+#####To which party do the top 10 Cities of contributers primarily give their money to?
+
+```{r, echo=FALSE}
+
+contb_by_city_party <- ia %>%
+  group_by(contbr_city) %>%
+  summarise(total_contb = sum(contb_receipt_amt),
+            total_contb_dem = sum(contb_receipt_amt[which(party == 'Democrat')]),
+            total_contb_rep = sum(contb_receipt_amt[which(party == 'Republican')]),
+            n = n()) %>%
+  arrange(-total_contb)
+
+top_city_by_party <- contb_by_city_party[1:10, ]
+
+```
+
+```{r, echo=FALSE}
+ggplot(aes(x = contbr_city, y = total_contb), data = top_city_by_party) + 
+  geom_bar(stat="identity", fill = "blue") + 
+  geom_bar(aes(x = contbr_city, y = total_contb_rep), 
+      data = top_city_by_party, stat = "identity",fill = "red")
+```
+
+#####The Democrats have the advantage in Des Moines, Iowa City, Ames, while  the Republican candidates earned more in the rest of the top contributing cities.
+
+
+#####To which party do the top 10 Occupations of contributers primarily give their money to?
+
+```{r, echo=FALSE}
+
+contb_by_occ_party <- ia %>%
+  group_by(contbr_occupation) %>%
+  summarise(total_contb = sum(contb_receipt_amt),
+            total_contb_dem = sum(contb_receipt_amt[which(party == 'Democrat')]),
+            total_contb_rep = sum(contb_receipt_amt[which(party == 'Republican')]),
+            n = n()) %>%
+  arrange(-total_contb)
+
+contb_by_occ_party$contbr_occupation <- 
+  as.character(contb_by_occ_party$contbr_occupation)
+contb_by_occ_party$contbr_occupation[2] <- "INFO REQ.1"
+contb_by_occ_party$contbr_occupation[10] <- "INFO REQ.2"
+top_contb_occ_party <- contb_by_occ_party[1:10, ]
+
+```
+
+```{r, echo=FALSE}
+ggplot(aes(x = contbr_occupation, y = total_contb), data = top_contb_occ_party) + 
+  geom_bar(stat="identity", fill = "blue") + 
+  geom_bar(aes(x = contbr_occupation, y = total_contb_rep), 
+    data = top_contb_occ_party, stat = "identity", fill   = "red")
+
+```
+
+#####Retirees overwhelmingly support Republicans, as do most of the occupations in Iowa. It would be interesting to know who the people in the "INFORMATION REQUESTED" categories are since one favors Republicans and the other favors Democrats. Most interesting in this chart is that the unemployed support Democrats.
+
+#####Since Retirees contribute so much to the candidates, I'm curious to see who they support 
+
+```{r, echo=FALSE}
+
+retired <- ia %>%
+  group_by(cand_lnm, party) %>%
+  summarise(total_contb = 
+              sum(contb_receipt_amt[which(contbr_occupation == "RETIRED")])) %>%
+  arrange(-total_contb)
+
+```
+
+
+```{r, echo=FALSE}
+ggplot(aes(x = cand_lnm, y = total_contb), data = retired) + 
+  geom_bar(stat="identity", aes(fill = retired$party == 'Democrat')) 
+
+```
+
+
+##Talk about some of the relationships you observed in this part of the investigation. Were there features that strengthened each other in terms of looking at your feature(s) of interest?
+
+#####It was very interesting to add the third dimension of the party onto each of the charts. It clearly showed which city and occupation leans Republican or Democrat. These charts then lead to the natural question of which did these occupations or cities support the most? 
+
+##Were there any interesting or surprising interactions between features?
+
+#####Since the relationship between Retired Iowans and campaign contributions is so strong, I investigated the Retired population further. I found that Ben Carson had the strongest support from Retirees, with Ted Cruz a distant second. Hillary Clinton had the strongest support for the Democrats.
+
+
+#Final Plots and Summary
+
+###Plot One
+
+```{r, echo=FALSE}
+qplot(x = contb_receipt_amt, data = subset(ia, ia$contb_receipt_amt > 0 & 
+    ia$contb_receipt_amt < 700), binwidth = 10, xlab = "Contribution Amount ($)", 
+    ylab = "Number of Contributions") +
+  geom_vline(xintercept=mean(ia$contb_receipt_amt), color="orange") +
+  geom_vline(xintercept=median(ia$contb_receipt_amt), color="green") + 
+  scale_x_continuous(lim = c(0, 700), breaks = seq(0, 700, 50)) +
+  ggtitle("Contributions made by Iowans") + 
+  scale_fill_manual(values=c("orange", "green"),labels=c("Mean", "Median"), 
+    name = "Statistic") 
+
+```
+
+###Description One
+#####This chart shows the distribution of contributions across Iowa for both parties. It is clear that the majority of contributions were below $100. The orange vertical line shows the mean and the green vertical line shows the median. The median is the best representation of the data because of the wide range of contributions. I chose this graph because it shows that the majority over voters contribute $50, which validates the claims that politicians make about the grassroots nature of their campaigns. My theory behind why people contribute $50 is because that's all they can afford, but maybe also because they recognize how much money comes to politicans from outside sources, so they don't feel like they need to give that much money. 
+
+###Plot Two
+
+```{r, echo=FALSE}
+
+qplot(x = cand_lnm, y = contb_receipt_amt, data = dem, geom = "boxplot", 
+      xlab = "2016 Democratic Candidate", ylab = "Contribution Amount (USD$)", 
+      col = I("Blue"), fill = I("White")) + 
+  coord_cartesian(ylim = c(0, 500)) +
+    ggtitle("Contributions made to Democratic Candidates") 
+  
+
+qplot(x = cand_lnm, y = contb_receipt_amt, data = rep, geom = "boxplot", 
+      xlab = "2016 Republican Candidate", ylab = "Contribution Amount (USD$)", 
+      col = I("Red"), fill = I("White")) + 
+  coord_cartesian(ylim = c(0, 1000)) +
+  ggtitle("Contributions made to Republican Candidates") 
+
+```
+
+###Description Two
+#####These boxplots are of selected ranges that show the majority of contributions for each candidate. I chose to make these plots because its easy to see how the candidates compared to each other in terms of fundraising. For the Democrats, its easy to see that Clinton and Sanders both came in at the Median contribution level of $50 and they had many more supporters, which is indicted by the points above their box plot. A similar conclusion can be made for Carson and Cruz on the Republican side. They both had median contributions around $50, and they also had have more supporters indicated by the points above their box plot. Even though Ben Carson had strong support in Iowa, he has stepped out of the campaign. Clinton and Cruz both won Iowa, and these contribution numbers are an indication of their victory. Note that Webb, Christie, and Kasich have much higher medians and ranges than the rest of the candidates. 
+
+###Plot Three
+
+```{r, echo=FALSE}
+
+ggplot(aes(x = contbr_occupation, y = total_contb), data = top_contb_occ_party) + 
+  labs(x = "Contributer Occupation", y = "Contribution Amount (USD$)") + 
+  geom_bar(stat="identity", fill = "blue", show.legend = TRUE) + 
+  geom_bar(aes(x = contbr_occupation, y = total_contb_rep), 
+      data = top_contb_occ_party, stat = "identity", fill   = "red",
+      show.legend = TRUE) +
+  ggtitle("Top 10 Contributer Occupations") +  
+  scale_y_continuous(lim = c(0, 400000), labels = comma) +
+  scale_fill_manual(values=c("blue", "red"), 
+                    labels=c("Democrat", "Republican"), 
+                    name = "Party") + 
+  theme(axis.text.x = element_text(angle=90)) 
+
+
+ggplot(aes(x = cand_lnm, y = total_contb, fill = factor(party)), data = retired) + 
+  geom_bar(stat="identity") + 
+  ggtitle("Contributions from Retirees in Iowa") + 
+  labs(x = "2016 Primary Candidate", 
+       y = "Contribution Amount (USD$)") +
+  scale_y_continuous(labels = comma) +
+  scale_fill_manual(values=c("blue", "red"), 
+                    labels=c("Democrat", "Republican"), 
+                    name = "Party") + 
+  theme(axis.text.x = element_text(angle=90)) 
+
+```
+
+###Description Three
+#####The top bar chart shows the Top 10 Contributers by Occupation, split into Republican and Democrat. I chose to make this chart because if I were running a campaign, I'd want to understand which groups are contributing the most money. This would help me target my campaign message, and more importantly figure out who isn't contributing and why. By understanding who isn't contributing, I would try to figure out how to bring them into the political process.
+
+#####Clearly the Retirees in Iowa are very politically active, so I wanted to know who Retirees support. The bottom bar chart drills down into which the Retirees in Iowa supported, by color coding the party of each candidate. Ben Carson, Hillary Clinton, and Ted Cruz were the favorites for the Retirees. It makes sense to me why Retirees are most active, because they are more sensitive to policy changes in healthcare or taxes. 
+
+#Reflection
+#####The 2016 Presidential Campaign Finance Contributor Dataset for Iowa contained 10,0098 observations of 18 variables. The most interesting features in the dataset are the candidate names, the amount given contributors, occupation of the contributors, and where the contributors live. In addition, I added the political party and gender of each candidate. 
+
+#####I started by looking at the names, structure, and summary of candidate names to get a feel for the dataset. I made some tables to see how many contributors each candidate had and the total amounts that the Democrats and Republicans raised. The Repulicans had more contributors and raised more money. I analyzed the contribution amounts and found that the majority of the contributions were less than $100. The contribution amounts have a long tail and are skewed to the left, so I made some transformations and found that the log_10 transformation makes a normal distribution. I also created a frequency poly chart of the log_10 transformation, which made it easy to show how the Republicans raised more than the Democrats. Finally, I explored the data by looking at the occupations of the contributors and the distribution of cities of contributors.
+
+#####Since this dataset is based on the categorical variables, bi-variate analysis is most useful. I created box plots to show how the candidates compared in fundraising amounts, and I split these charts up by political party. I found that the Democrats closest competitors, Clinton and Sanders, raise the same median amount, however Hillary Clinton raised the most money out of all candidates from both parties. Then I created bar charts of the the Top 10 Cities and Top 10 Occupations, which made it easy to see that the city of Des Moines and Retirees contribute the most amount of money.
+
+#####These bar charts led me to wonder how the cities and occupations broke between Republican and Democrat. This is where adding the party variable really came in handy, because I was easily able to add that layer to the analysis. Since Retirees were such strong contributers I investigated who they supported the most, and found it was Hillary Clinton for the Democrats and Ben Carson for the Republicans.
+
+#####Similarly, one more question I would ask about the data is which candidates did Des Moines support? It would also be interesting to map the data so that its easy to see which cities are contributing the most. This would allow candidates to focus their efforts and investigate whether they should be reaching out to untapped counties.
+
+#####It took me a while to figure out how to add the politcal party and gender of each candidate, but it was well worth it because it added an extra layer of analysis. I really liked learning about chaining functions, I find it very logical and easy to ask questions. Finally, using ggplot2 is great for multi-variate analysis because its easy to layer on addtional forms of data.
+
+
+
+
+
+
+
